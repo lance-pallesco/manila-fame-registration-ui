@@ -50,10 +50,11 @@ const formatFileSize = (bytes) => {
 
 // Brochure info
 const brochureInfo = computed(() => {
-  if (!companyInfo.value.brochure) return null
+  const b = companyInfo.value.brochure
+  if (!b) return null
   return {
-    name: companyInfo.value.brochure.name,
-    size: formatFileSize(companyInfo.value.brochure.size),
+    name: b.name,
+    size: formatFileSize(b.size),
   }
 })
 

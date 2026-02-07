@@ -1,18 +1,13 @@
 /**
  * Axios API Client
  * 
- * Configured axios instance for API communication.
- * Includes request/response interceptors for authentication and error handling.
- * 
- * When Laravel backend is ready:
- * 1. Update BASE_URL to point to your Laravel API
- * 2. Configure CSRF token handling if using Sanctum
- * 3. Add authentication token to headers
+ * Configured axios instance for API communication with Laravel backend.
+ * Includes request/response interceptors for error handling.
  */
 
 import axios from 'axios'
 
-// Base URL placeholder - update when Laravel backend is ready
+// Base URL - reads from environment variable
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
 // Create axios instance with default configuration
@@ -20,17 +15,49 @@ const apiClient = axios.create({
   baseURL: BASE_URL,
   timeout: 30000, // 30 seconds
   headers: {
-    'Content-Type': 'application/json',
     'Accept': 'application/json'
   }
 })
+
+/**
+ * Convert snake_case to camelCase
+ * @param {string} str - snake_case string
+ * @returns {string} camelCase string
+ */
+const toCamelCase = (str) => {
+  return str.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase())
+}
+
+/**
+ * Transform Laravel validation error keys to frontend field names
+ * Converts 'account_info.first_name' to 'firstName'
+ * 
+ * @param {object} errors - Laravel validation errors
+ * @returns {object} Transformed errors with camelCase field names
+ */
+const transformValidationErrors = (errors) => {
+  const transformed = {}
+  
+  for (const [key, messages] of Object.entries(errors)) {
+    // Remove 'account_info.' or 'company_info.' prefix and convert to camelCase
+    let fieldName = key
+      .replace(/^account_info\./, '')
+      .replace(/^company_info\./, '')
+    
+    // Convert snake_case to camelCase
+    fieldName = toCamelCase(fieldName)
+    
+    transformed[fieldName] = messages
+  }
+  
+  return transformed
+}
 
 /**
  * Request Interceptor
  * 
  * Runs before every request. Use this to:
  * - Add authentication tokens
- * - Add CSRF tokens (Laravel Sanctum)
  * - Log requests in development
  */
 apiClient.interceptors.request.use(
@@ -41,14 +68,10 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`
     }
 
-    // For Laravel Sanctum, you might need XSRF token
-    // const xsrfToken = document.cookie
-    //   .split('; ')
-    //   .find(row => row.startsWith('XSRF-TOKEN='))
-    //   ?.split('=')[1]
-    // if (xsrfToken) {
-    //   config.headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfToken)
-    // }
+    // Log requests in development
+    if (import.meta.env.DEV) {
+      console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`)
+    }
 
     return config
   },
@@ -62,12 +85,14 @@ apiClient.interceptors.request.use(
  * 
  * Runs after every response. Use this to:
  * - Handle common error responses
- * - Transform response data
- * - Handle token refresh
+ * - Transform Laravel validation errors
  */
 apiClient.interceptors.response.use(
   (response) => {
-    // Return data directly for convenience
+    // Log successful responses in development
+    if (import.meta.env.DEV) {
+      console.log(`[API] Response:`, response.status, response.data)
+    }
     return response
   },
   (error) => {
@@ -75,28 +100,52 @@ apiClient.interceptors.response.use(
     if (error.response) {
       const { status, data } = error.response
 
+      // Log errors in development
+      if (import.meta.env.DEV) {
+        console.error(`[API] Error ${status}:`, data)
+      }
+
       switch (status) {
         case 401:
-          // Unauthorized - clear token and redirect to login
+          // Unauthorized - clear token
           localStorage.removeItem('auth_token')
-          // Could emit event or redirect here
           break
+          
         case 422:
           // Validation errors - Laravel returns these for form validation
-          // Return the error response so components can handle validation errors
+          // Transform error keys to match frontend field names
+          const transformedErrors = data.errors 
+            ? transformValidationErrors(data.errors)
+            : {}
+          
           return Promise.reject({
             isValidationError: true,
-            errors: data.errors || {},
+            errors: transformedErrors,
             message: data.message || 'Validation failed'
           })
+          
         case 500:
           // Server error
-          console.error('Server error:', data)
-          break
+          return Promise.reject({
+            isValidationError: false,
+            errors: {},
+            message: data.message || 'Server error. Please try again later.'
+          })
       }
+    } else if (error.request) {
+      // Network error - no response received
+      return Promise.reject({
+        isValidationError: false,
+        errors: {},
+        message: 'Unable to connect to server. Please check your internet connection.'
+      })
     }
 
-    return Promise.reject(error)
+    return Promise.reject({
+      isValidationError: false,
+      errors: {},
+      message: error.message || 'An unexpected error occurred.'
+    })
   }
 )
 

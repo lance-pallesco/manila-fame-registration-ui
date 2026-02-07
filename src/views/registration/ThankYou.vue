@@ -17,6 +17,10 @@ const {
   resetForm
 } = useRegistration()
 
+// Generate a random registration reference number for the user
+// Format: MF-2026-XXXXXX (6 random digits)
+const registrationId = `MF-${new Date().getFullYear()}-${String(Math.floor(100000 + Math.random() * 900000))}`
+
 // Get participation type label
 const participationLabel = computed(() => {
   const type = PARTICIPATION_TYPES.find(t => t.value === accountInfo.value.participationType)
@@ -74,7 +78,7 @@ const startNewRegistration = () => {
           Your Registration ID
         </div>
         <div class="text-h4 font-weight-bold text-success">
-          {{ submissionResult?.registrationId || 'MF-XXXXXX' }}
+          {{ registrationId }}
         </div>
         <div class="text-caption text-grey mt-2">
           Please save this ID for your records

@@ -118,7 +118,9 @@ export function useRegistration() {
     if (!isRequired(city)) errors.city = ['City is required']
     if (!isRequired(country)) errors.country = ['Country is required']
 
-    if (yearEstablished && !isValidYear(yearEstablished)) {
+    if (!isRequired(yearEstablished)) {
+      errors.yearEstablished = ['Year established is required']
+    } else if (!isValidYear(yearEstablished)) {
       errors.yearEstablished = [
         `Year must be between ${VALIDATION_RULES.yearEstablished.min} and ${VALIDATION_RULES.yearEstablished.max}`,
       ]

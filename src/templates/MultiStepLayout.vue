@@ -92,6 +92,32 @@ const handleStepClick = (step) => {
 
 <template>
   <v-card class="multi-step-layout mx-auto" max-width="900" elevation="4">
+    <!-- Loading Overlay - shown while submitting registration -->
+    <v-overlay
+      :model-value="loading"
+      contained
+      persistent
+      class="align-center justify-center"
+      scrim="white"
+      :opacity="0.85"
+    >
+      <div class="text-center">
+        <v-progress-circular
+          indeterminate
+          color="primary"
+          size="64"
+          width="6"
+          class="mb-4"
+        />
+        <div class="text-h6 text-primary font-weight-medium">
+          Submitting Registration
+        </div>
+        <div class="text-body-2 text-grey-darken-1 mt-2">
+          Please wait while we process your registration...
+        </div>
+      </div>
+    </v-overlay>
+
     <!-- Card Header with Title -->
     <v-card-title class="card-header pa-6 pb-4">
       <div class="text-center">

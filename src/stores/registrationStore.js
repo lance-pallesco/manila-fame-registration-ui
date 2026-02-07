@@ -60,7 +60,7 @@ export const useRegistrationStore = defineStore('registration', () => {
     accountInfo: { ...accountInfo.value },
     companyInfo: {
       ...companyInfo.value,
-      brochure: undefined,
+      // Keep brochure file for FormData submission
     },
   }))
 

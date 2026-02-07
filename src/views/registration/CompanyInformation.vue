@@ -123,7 +123,7 @@ const currentYear = new Date().getFullYear()
             placeholder="e.g., 2010"
             prepend-inner-icon="mdi-calendar"
             :hint="`Enter a year between 1800 and ${currentYear}`"
-            :rules="[rules.year]"
+            :rules="[rules.required, rules.year]"
             :error-messages="getError('yearEstablished')"
           />
         </v-col>

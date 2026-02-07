@@ -91,11 +91,12 @@ const fileInfo = computed(() => {
 })
 
 const handleFileChange = (files) => {
-  internalFiles.value = files || []
+  // Normalize: Vuetify 3 without `multiple` emits a single File, not an array
+  const file = files instanceof File ? files : (Array.isArray(files) ? files[0] : null)
 
-  if (files && files.length > 0) {
-    const file = files[0]
+  internalFiles.value = file ? [file] : []
 
+  if (file) {
     // Validate file size
     const maxBytes = props.maxSizeMb * 1024 * 1024
     if (file.size > maxBytes) {

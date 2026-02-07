@@ -1,129 +1,90 @@
 /**
  * Registration Service
  *
- * API functions for registration-related operations.
- * Currently uses mock responses; switch to apiClient when backend is ready.
- *
- * To switch to real API:
- * 1. Import apiClient instead of mock functions
- * 2. Replace mock function calls with apiClient.post/get calls
- * 3. Adjust response handling as needed
+ * Handles registration API communication with the Laravel backend.
+ * Uses a single endpoint: POST /api/register
  */
 
 import apiClient from './apiClient'
-import { API_ENDPOINTS } from '@/constants/registration'
-import {
-  mockCheckEmailUnique,
-  mockCheckUsernameUnique,
-  mockUploadBrochure,
-  mockValidateStep,
-  mockSubmitRegistration,
-} from './mockService'
-
-// Set to false to use real API (when Laravel backend is ready)
-const USE_MOCK = true
 
 /**
- * Check if email is unique/available
- * @param {string} email - Email to check
- * @returns {Promise<{data: {isUnique: boolean}, message: string}>}
+ * Convert camelCase to snake_case
+ * @param {string} str - camelCase string
+ * @returns {string} snake_case string
  */
-export const checkEmailUnique = async (email) => {
-  if (USE_MOCK) {
-    return mockCheckEmailUnique(email)
-  }
-
-  // Real API call (uncomment when backend is ready)
-  const response = await apiClient.post(API_ENDPOINTS.validateEmail, { email })
-  return response.data
+const toSnakeCase = (str) => {
+  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
 }
 
 /**
- * Check if username is unique/available
- * @param {string} username - Username to check
- * @returns {Promise<{data: {isUnique: boolean}, message: string}>}
+ * Build FormData with nested field names for Laravel
+ * 
+ * Converts the frontend data structure to Laravel's expected format:
+ * { accountInfo: { firstName: 'John' } } → FormData with 'account_info[first_name]' = 'John'
+ * 
+ * @param {object} data - Registration data object
+ * @param {File|null} brochure - Optional brochure file
+ * @returns {FormData}
  */
-export const checkUsernameUnique = async (username) => {
-  if (USE_MOCK) {
-    return mockCheckUsernameUnique(username)
-  }
-
-  const response = await apiClient.post(API_ENDPOINTS.validateUsername, { username })
-  return response.data
-}
-
-export const uploadBrochure = async (file, onProgress = null) => {
-  if (USE_MOCK) {
-    return mockUploadBrochure(file)
-  }
-
-  // Real API call with FormData for file upload
+const buildFormData = (data, brochure = null) => {
   const formData = new FormData()
-  formData.append('brochure', file)
 
-  const response = await apiClient.post(API_ENDPOINTS.uploadBrochure, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-    onUploadProgress: (progressEvent) => {
-      if (onProgress) {
-        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-        onProgress(percentCompleted)
+  // Add account_info fields
+  if (data.accountInfo) {
+    Object.entries(data.accountInfo).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        const snakeKey = toSnakeCase(key)
+        formData.append(`account_info[${snakeKey}]`, value)
       }
-    },
-  })
-
-  return response.data
-}
-
-/**
- * Validate a specific registration step
- * @param {number} step - Step number (1, 2, or 3)
- * @param {object} data - Step data to validate
- * @returns {Promise<{data: {isValid: boolean, errors: object}, message: string}>}
- */
-export const validateStep = async (step, data) => {
-  if (USE_MOCK) {
-    return mockValidateStep(step, data)
+    })
   }
 
-  // Real API call
-  const response = await apiClient.post(`${API_ENDPOINTS.register}/validate/${step}`, data)
-  return response.data
+  // Add company_info fields
+  if (data.companyInfo) {
+    Object.entries(data.companyInfo).forEach(([key, value]) => {
+      // Skip brochure and brochurePath - handled separately
+      if (key === 'brochure' || key === 'brochurePath') return
+      
+      if (value !== undefined && value !== null && value !== '') {
+        const snakeKey = toSnakeCase(key)
+        formData.append(`company_info[${snakeKey}]`, value)
+      }
+    })
+  }
+
+  // Add brochure file if provided
+  if (brochure) {
+    formData.append('brochure', brochure)
+  }
+
+  return formData
 }
 
 /**
  * Submit complete registration
- * @param {object} registrationData - Complete registration data
- * @returns {Promise<{data: {registrationId: string, ...}, message: string}>}
+ * 
+ * Sends all registration data to the Laravel backend as multipart/form-data.
+ * The backend validates all fields and returns:
+ * - 201: Registration successful
+ * - 422: Validation errors (field-level errors)
+ * - 500: Server error
+ * 
+ * @param {object} registrationData - Complete registration data from store
+ * @returns {Promise<{success: boolean, message: string}>}
  */
 export const submitRegistration = async (registrationData) => {
-  if (USE_MOCK) {
-    return mockSubmitRegistration(registrationData)
-  }
+  // Get the brochure file from companyInfo (if any)
+  const brochure = registrationData.companyInfo?.brochure || null
 
-  // Real API call
-  const response = await apiClient.post(API_ENDPOINTS.register, registrationData)
-  return response.data
-}
+  // Build FormData with proper field naming for Laravel
+  const formData = buildFormData(registrationData, brochure)
 
-/**
- * Get registration status (for future use)
- * @param {string} registrationId - Registration ID
- * @returns {Promise<{data: object, message: string}>}
- */
-export const getRegistrationStatus = async (registrationId) => {
-  if (USE_MOCK) {
-    // Mock implementation
-    return {
-      data: {
-        registrationId,
-        status: 'pending',
-        message: 'Your registration is being processed',
-      },
-    }
-  }
+  // Send as multipart/form-data to the single registration endpoint
+  const response = await apiClient.post('/register', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  })
 
-  const response = await apiClient.get(`${API_ENDPOINTS.register}/${registrationId}`)
   return response.data
 }
