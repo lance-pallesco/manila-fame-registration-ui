@@ -15,7 +15,7 @@ Vue 3 SPA frontend for the Manila FAME 2026 multi-step event registration system
 
 - Node.js 20.19+ or 22.12+
 - npm
-- Laravel backend running (see [Backend README](../manila-fame-registration-api/README.md))
+- Laravel backend running (see [manila-fame-registration-api](https://github.com/lance-pallesco/manila-fame-registration-api))
 
 ## Getting Started
 
